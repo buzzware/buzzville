@@ -1,3 +1,7 @@
+# can : 
+# require 'buzzville/recipes' or 
+# require 'buzzville/recipes/data'
+
 require 'capistrano'
 require 'capistrano/cli'
 
@@ -6,8 +10,5 @@ require 'capistrano/cli'
   Capistrano.configuration(:must_exist)
   
 #Dir.glob(File.join(File.dirname(__FILE__), '/recipes/*.rb')).each { |f| load f }
-Dir.chdir(File.dirname(__FILE__)) { Dir['buzzcore/recipes/*'] }.each {|f| load f }
-
-Dir.chdir(File.dirname(__FILE__)) { Dir['buzzcore/*'] }.each {|f| require f }
-
+Dir.chdir(File.dirname(__FILE__)+'/..') { Dir['buzzville/recipes/*'] }.each {|f| load f }
 

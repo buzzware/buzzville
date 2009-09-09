@@ -5,13 +5,14 @@ begin
   require 'jeweler'
   Jeweler::Tasks.new do |gem|
     gem.name = "buzzville"
-    gem.summary = %Q{TODO: one-line summary of your gem}
-    gem.description = %Q{TODO: longer description of your gem}
-    gem.email = "regos@buzzware.com.au"
+    gem.summary = %Q{Capistrano recipes and ruby code relating to deployment}
+    gem.description = %Q{Capistrano recipes and ruby code relating to deployment}
+    gem.email = "contact@buzzware.com.au"
     gem.homepage = "http://github.com/buzzware/buzzville"
     gem.authors = ["buzzware"]
-    gem.rubyforge_project = "buzzville"
+    gem.rubyforge_project = "buzzware"
     gem.add_development_dependency "thoughtbot-shoulda"
+    gem.add_development_dependency "buzzware-buzzcore"
     # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20 for additional settings
   end
   Jeweler::RubyforgeTasks.new do |rubyforge|
