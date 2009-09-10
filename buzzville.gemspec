@@ -5,7 +5,7 @@
 
 Gem::Specification.new do |s|
   s.name = %q{buzzville}
-  s.version = "0.1.1"
+  s.version = "0.1.2"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["buzzware"]
@@ -25,6 +25,8 @@ Gem::Specification.new do |s|
      "VERSION",
      "buzzville.gemspec",
      "lib/buzzville.rb",
+     "lib/buzzville/cap_utils.rb",
+     "lib/buzzville/ftp_extra.rb",
      "lib/buzzville/recipes.rb",
      "lib/buzzville/recipes/data.rb",
      "lib/buzzville/recipes/files.rb",
