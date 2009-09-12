@@ -88,10 +88,10 @@ module CapUtils
 		end
 	end
 	
-	def ensure_link(aTo,aFrom,aDir=nil,aUserGroup=nil)
+	def ensure_link(aTo,aFrom,aDir=nil,aUserGroup=nil,aSudo='')
 		cmd = []
 		cmd << "cd #{aDir}" if aDir
-		cmd << "#{sudo} rm -f #{aFrom}"
+		cmd << "#{sudo} rm -rf #{aFrom}"
 		cmd << "#{sudo} ln -sf #{aTo} #{aFrom}"
 		cmd << "#{sudo} chown -h #{aUserGroup} #{aFrom}" if aUserGroup
 		run cmd.join(' && ')
@@ -99,12 +99,11 @@ module CapUtils
 	
 
 	def file_exists?(path)
-		begin
-			run "ls #{path}"
-			return true
-		rescue Exception => e
-			return false
+		result = nil
+		run "if [[ -e #{path} ]]; then echo 'true'; else echo 'false'; fi", :shell => false do |ch,stream,text|
+			result = (text.strip! == 'true')
 		end
+		result
 	end
 	
 	# Used in deployment to maintain folder contents between deployments.
@@ -163,6 +162,27 @@ module CapUtils
 		run cmd
 	end
 	
+	#run_for_all("chmod g+s #{File.expand_path(dir,public_dir)}",public_dir,:dirs)
+	
+	def set_dir_permissions(aStartPath,aUser=nil,aGroup=nil,aMode=nil,aSetGroupId=false)
+		cmd = []
+		if aGroup
+			cmd << (aUser ? "chown #{aUser}:#{aGroup}" : "chgrp #{aGroup}")
+		else	
+			cmd << "chown #{aUser}" if aUser
+		end
+		cmd << "chmod #{aMode.to_s}" if aMode
+		cmd << "chmod g+s" if aSetGroupId
+		cmd.each do |c|
+			run_for_all(c,aStartPath,:dirs)
+		end
+	end
+
+	def mkdir_permissions(aStartPath,aUser=nil,aGroup=nil,aMode=nil,aSetGroupId=false)
+		run "#{sudo} mkdir -p #{aStartPath}"
+		set_dir_permissions(aStartPath,aUser,aGroup,aMode,aSetGroupId)
+	end
+
 	# if aGroup is given, that will be the users only group
 	def adduser(aNewUser,aPassword,aGroup=nil)
 		run "#{sudo} adduser --gecos '' #{aGroup ? '--ingroup '+aGroup : ''} #{aNewUser}" do |ch, stream, out|
@@ -172,6 +192,36 @@ module CapUtils
 	
 	def add_user_to_group(aUser,aGroup)
 		run "#{sudo} usermod -a -G #{aGroup} #{aUser}"
+	end
+
+	# returns 'buzzware-logikal' from 'git@git.assembla.com:buzzware/logikal.git'
+	def project_name_from_git_commit_url(aGitUrl)
+		parts = aGitUrl.split(/[@:\/]/)	# eg ["git", "git.assembla.com", "buzzware", "logikal.git"]
+		return File.basename(parts[2..-1].join('-'),'.git')
+	end
+	
+	# returns from git://github.com/buzzware/spree.git
+	def project_name_from_git_public_url(aGitUrl)
+		prot,url = aGitUrl.split(/\:\/\//)
+		url_parts = url.split('/')
+		host = url_parts.shift
+		File.basename(url_parts.join('-'),'.git')
+	end
+
+	def update_remote_git_cache(aGitUrl,aBranchOrTag=nil)
+		proj = project_name_from_git_public_url(aGitUrl)
+		cache_path = File.join(shared_path,'extra_cache')
+		run "mkdir -p #{cache_path}"
+		dest = File.join(cache_path,proj)
+		revision = ''
+		sub_mods = false
+
+		run "git clone #{aGitUrl} #{dest}" if !file_exists?(dest)
+		run "cd #{dest} && git checkout -f #{aBranchOrTag ? aBranchOrTag : ''} #{revision} && git reset --hard && git clean -dfqx"
+		if sub_mods
+			run "cd #{dest} && git submodule init && git submodule update"
+		end
+		return dest
 	end
 
 end
