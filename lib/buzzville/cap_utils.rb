@@ -223,6 +223,71 @@ module CapUtils
 		end
 		return dest
 	end
+	
+	def force_copy_mode_cmd(aFrom,aTo,aChmod=nil)
+		cmd = []
+		cmd << "rm -rf #{aTo}"
+		cmd << "cp #{aFrom} #{aTo}"
+		cmd << "chmod #{aChmod.to_s} #{aTo}" if aChmod
+		cmd.join(' && ')
+	end
+	
+	def ensure_link_cmd(aTo,aFrom,aDir=nil,aUserGroup=nil,aSudo=nil)
+		aSudo ||= ''
+		cmd = []
+		cmd << "cd #{aDir}" if aDir
+		cmd << "#{aSudo} rm -rf #{aFrom}"
+		cmd << "#{aSudo} ln -sf #{aTo} #{aFrom}"
+		cmd << "#{aSudo} chown -h #{aUserGroup} #{aFrom}" if aUserGroup
+		cmd.join(' && ')
+	end
+	
+	# This means :
+	# * designers can ftp in to the server and upload/edit templates
+	# * templates are Rails-style eg. erb but can be whatever you have Rails handlers for
+	# * templates created in the database or deployed in the app/views/layouts/templates are read only to designers, and will be replaced on restart
+	# * designers can upload assets into a design folder that will be available publicly under /design
+	# * designers templates and assets are not affected by redeploys
+
+	def setup_designer_filesystem_cmd(aBrowserCmsRoot,aSharedDesignPath,aFtpPath,aUser,aApacheUser)
+		
+		cmd = []
+		
+		cmd << "mkdir -p #{aSharedDesignPath}"
+		cmd << "chown #{aUser}:#{aApacheUser} #{aSharedDesignPath}"
+		cmd << "chmod 750 #{aSharedDesignPath}"
+		cmd << "mkdir -p #{aSharedDesignPath}/design"
+		cmd << "mkdir -p #{aSharedDesignPath}/templates"
+	
+		# copy in files from database and make readonly
+		Dir[aBrowserCmsRoot+'/tmp/views/layouts/templates/*'].each do |from|
+			cmd << force_copy_mode_cmd(from,aSharedDesignPath+'/templates/'+File.basename(from),440)
+		end
+		#FileUtils.rm_rf(aBrowserCmsRoot+'/tmp/views/layouts/templates')
+		cmd << ensure_link_cmd(aSharedDesignPath+'/templates','templates',aBrowserCmsRoot+'/tmp/views/layouts',"#{aUser}:#{aApacheUser}")
+	
+		# copy in files from aBrowserCmsRoot and make readonly
+		Dir[aBrowserCmsRoot+'/app/views/layouts/templates/*'].each do |from|
+			cmd << force_copy_mode_cmd(from,aSharedDesignPath+'/templates/'+File.basename(from),440)
+		end
+	
+		# link design/public into public folder
+		cmd << ensure_link_cmd(aSharedDesignPath+'/design','design',aBrowserCmsRoot+'/public',"#{aUser}:#{aApacheUser}")
+	
+		## link shared/design/design into ftp folder
+		cmd << ensure_link_cmd(aSharedDesignPath+'/design','design',aFtpPath,"#{aUser}:#{aApacheUser}")
+		## link templates into ftp folder
+		cmd << ensure_link_cmd(aBrowserCmsRoot+'/app/views/layouts/templates','templates',aFtpPath,"#{aUser}:#{aApacheUser}")
+		#run "#{sudo} chgrp -h www-data #{deploy_to}/current"  # this is to change owner of link, not target
+		cmd_s = cmd.join(" && ")
+	end
+	# actual output
+	# mkdir -p /var/www/logikal.stage/shared/design && chown logikal:www-data /var/www/logikal.stage/shared/design && chmod 750 /var/www/logikal.stage/shared/design && mkdir -p /var/www/logikal.stage/shared/design/design && mkdir -p /var/www/logikal.stage/shared/design/templates && rm -rf /var/www/logikal.stage/shared/design/templates/default.html.erb && cp /var/www/logikal.stage/current/cms/tmp/views/layouts/templates/default.html.erb /var/www/logikal.stage/shared/design/templates/default.html.erb && chmod 440 /var/www/logikal.stage/shared/design/templates/default.html.erb && cd /var/www/logikal.stage/current/cms/tmp/views/layouts &&  rm -rf templates &&  ln -sf /var/www/logikal.stage/shared/design/templates templates &&  chown -h logikal:www-data templates && rm -rf /var/www/logikal.stage/shared/design/templates/experimental.html.erb && cp /var/www/logikal.stage/current/cms/app/views/layouts/templates/experimental.html.erb /var/www/logikal.stage/shared/design/templates/experimental.html.erb && chmod 440 /var/www/logikal.stage/shared/design/templates/experimental.html.erb && cd /var/www/logikal.stage/current/cms/public &&  rm -rf design &&  ln -sf /var/www/logikal.stage/shared/design/design design &&  chown -h logikal:www-data design && cd /home/logikal &&  rm -rf design &&  ln -sf /var/www/logikal.stage/shared/design/design design &&  chown -h logikal:www-data design && cd /home/logikal &&  rm -rf templates &&  ln -sf /var/www/logikal.stage/current/cms/app/views/layouts/templates templates &&  chown -h logikal:www-data templates
+
+	def install_script_from_string(aScriptString,aFilepath)
+		file_from_string(aScriptString,aFilepath)
+		set_permissions(aFilepath,user,apache_user,750)
+	end
 
 end
 
