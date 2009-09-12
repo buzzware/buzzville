@@ -164,7 +164,7 @@ module CapUtils
 	
 	#run_for_all("chmod g+s #{File.expand_path(dir,public_dir)}",public_dir,:dirs)
 	
-	def set_dir_permissions(aStartPath,aUser=nil,aGroup=nil,aMode=nil,aSetGroupId=false)
+	def set_dir_permissions_r(aStartPath,aUser=nil,aGroup=nil,aMode=nil,aSetGroupId=false)
 		cmd = []
 		if aGroup
 			cmd << (aUser ? "chown #{aUser}:#{aGroup}" : "chgrp #{aGroup}")
@@ -178,9 +178,26 @@ module CapUtils
 		end
 	end
 
-	def mkdir_permissions(aStartPath,aUser=nil,aGroup=nil,aMode=nil,aSetGroupId=false)
+	def set_permissions_cmd(aFilepath,aUser=nil,aGroup=nil,aMode=nil,aSetGroupId=false,aSudo=true)
+		cmd = []
+		if aGroup
+			cmd << (aUser ? "#{aSudo ? sudo : ''} chown #{aUser}:#{aGroup}" : "#{aSudo ? sudo : ''} chgrp #{aGroup}") + " #{aFilepath}"
+		else	
+			cmd << "#{aSudo ? sudo : ''} chown #{aUser} #{aFilepath}" if aUser
+		end
+		cmd << "#{aSudo ? sudo : ''} chmod #{aMode.to_s} #{aFilepath}" if aMode
+		cmd << "#{aSudo ? sudo : ''} chmod g+s #{aFilepath}" if aSetGroupId
+		cmd.join(' && ')
+	end
+	
+	def set_permissions(aFilepath,aUser=nil,aGroup=nil,aMode=nil,aSetGroupId=false,aSudo=true)
+		cmd = set_permissions_cmd(aFilepath,aUser,aGroup,aMode,aSetGroupId,aSudo)
+		run cmd
+	end
+
+	def mkdir_permissions(aStartPath,aUser=nil,aGroup=nil,aMode=nil,aSetGroupId=false,aSudo=true)
 		run "#{sudo} mkdir -p #{aStartPath}"
-		set_dir_permissions(aStartPath,aUser,aGroup,aMode,aSetGroupId)
+		set_permissions(aStartPath,aUser,aGroup,aMode,aSetGroupId,aSudo)
 	end
 
 	# if aGroup is given, that will be the users only group
@@ -227,7 +244,7 @@ module CapUtils
 	def force_copy_mode_cmd(aFrom,aTo,aChmod=nil)
 		cmd = []
 		cmd << "rm -rf #{aTo}"
-		cmd << "cp #{aFrom} #{aTo}"
+		cmd << "cp -f #{aFrom} #{aTo}"
 		cmd << "chmod #{aChmod.to_s} #{aTo}" if aChmod
 		cmd.join(' && ')
 	end
@@ -259,17 +276,19 @@ module CapUtils
 		cmd << "mkdir -p #{aSharedDesignPath}/design"
 		cmd << "mkdir -p #{aSharedDesignPath}/templates"
 	
-		# copy in files from database and make readonly
-		Dir[aBrowserCmsRoot+'/tmp/views/layouts/templates/*'].each do |from|
-			cmd << force_copy_mode_cmd(from,aSharedDesignPath+'/templates/'+File.basename(from),440)
-		end
-		#FileUtils.rm_rf(aBrowserCmsRoot+'/tmp/views/layouts/templates')
+		# copy files from database to shared/design and make readonly
+		cmd << "cp #{aBrowserCmsRoot}/tmp/views/layouts/templates/* #{aSharedDesignPath}/templates/"
+		#Dir[aBrowserCmsRoot+'/tmp/views/layouts/templates/*'].each do |from|
+		#	cmd << force_copy_mode_cmd(from,aSharedDesignPath+'/templates/'+File.basename(from),640)
+		#end
+		#convert tmp templates folder into a link to shared/design
 		cmd << ensure_link_cmd(aSharedDesignPath+'/templates','templates',aBrowserCmsRoot+'/tmp/views/layouts',"#{aUser}:#{aApacheUser}")
 	
-		# copy in files from aBrowserCmsRoot and make readonly
-		Dir[aBrowserCmsRoot+'/app/views/layouts/templates/*'].each do |from|
-			cmd << force_copy_mode_cmd(from,aSharedDesignPath+'/templates/'+File.basename(from),440)
-		end
+		# copy files from aBrowserCmsRoot to shared/design and make readonly
+		cmd << "cp #{aBrowserCmsRoot}/app/views/layouts/templates/* #{aSharedDesignPath}/templates/"
+		#Dir[aBrowserCmsRoot+'/app/views/layouts/templates/*'].each do |from|
+		#	cmd << force_copy_mode_cmd(from,aSharedDesignPath+'/templates/'+File.basename(from),440)
+		#end
 	
 		# link design/public into public folder
 		cmd << ensure_link_cmd(aSharedDesignPath+'/design','design',aBrowserCmsRoot+'/public',"#{aUser}:#{aApacheUser}")
@@ -277,7 +296,7 @@ module CapUtils
 		## link shared/design/design into ftp folder
 		cmd << ensure_link_cmd(aSharedDesignPath+'/design','design',aFtpPath,"#{aUser}:#{aApacheUser}")
 		## link templates into ftp folder
-		cmd << ensure_link_cmd(aBrowserCmsRoot+'/app/views/layouts/templates','templates',aFtpPath,"#{aUser}:#{aApacheUser}")
+		cmd << ensure_link_cmd(aSharedDesignPath+'/design','templates',aFtpPath,"#{aUser}:#{aApacheUser}")
 		#run "#{sudo} chgrp -h www-data #{deploy_to}/current"  # this is to change owner of link, not target
 		cmd_s = cmd.join(" && ")
 	end
@@ -285,8 +304,10 @@ module CapUtils
 	# mkdir -p /var/www/logikal.stage/shared/design && chown logikal:www-data /var/www/logikal.stage/shared/design && chmod 750 /var/www/logikal.stage/shared/design && mkdir -p /var/www/logikal.stage/shared/design/design && mkdir -p /var/www/logikal.stage/shared/design/templates && rm -rf /var/www/logikal.stage/shared/design/templates/default.html.erb && cp /var/www/logikal.stage/current/cms/tmp/views/layouts/templates/default.html.erb /var/www/logikal.stage/shared/design/templates/default.html.erb && chmod 440 /var/www/logikal.stage/shared/design/templates/default.html.erb && cd /var/www/logikal.stage/current/cms/tmp/views/layouts &&  rm -rf templates &&  ln -sf /var/www/logikal.stage/shared/design/templates templates &&  chown -h logikal:www-data templates && rm -rf /var/www/logikal.stage/shared/design/templates/experimental.html.erb && cp /var/www/logikal.stage/current/cms/app/views/layouts/templates/experimental.html.erb /var/www/logikal.stage/shared/design/templates/experimental.html.erb && chmod 440 /var/www/logikal.stage/shared/design/templates/experimental.html.erb && cd /var/www/logikal.stage/current/cms/public &&  rm -rf design &&  ln -sf /var/www/logikal.stage/shared/design/design design &&  chown -h logikal:www-data design && cd /home/logikal &&  rm -rf design &&  ln -sf /var/www/logikal.stage/shared/design/design design &&  chown -h logikal:www-data design && cd /home/logikal &&  rm -rf templates &&  ln -sf /var/www/logikal.stage/current/cms/app/views/layouts/templates templates &&  chown -h logikal:www-data templates
 
 	def install_script_from_string(aScriptString,aFilepath)
-		file_from_string(aScriptString,aFilepath)
-		set_permissions(aFilepath,user,apache_user,750)
+		temp_path = File.join(deploy_to,File.basename(aFilepath))
+		put(aScriptString,temp_path)
+		run "#{sudo} mv #{temp_path} #{aFilepath}"
+		set_permissions(aFilepath,'root',user,750,false,true)
 	end
 
 end
