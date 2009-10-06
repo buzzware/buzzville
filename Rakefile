@@ -4,15 +4,17 @@ require 'rake'
 begin
   require 'jeweler'
   Jeweler::Tasks.new do |gem|
-    gem.name = "buzzville"
+    gem.name = "buzzware-buzzville"
     gem.summary = %Q{Capistrano recipes and ruby code relating to deployment}
     gem.description = %Q{Capistrano recipes and ruby code relating to deployment}
     gem.email = "contact@buzzware.com.au"
     gem.homepage = "http://github.com/buzzware/buzzville"
     gem.authors = ["buzzware"]
     gem.rubyforge_project = "buzzware"
+    gem.add_dependency('buzzware-buzzcore', '>= 0.2.4')
+    gem.add_dependency('buzzware-yore', '>= 0.0.5')
+    gem.add_dependency('cmdparse', '>= 2.0.2')
     gem.add_development_dependency "thoughtbot-shoulda"
-    gem.add_development_dependency "buzzware-buzzcore"
     # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20 for additional settings
   end
   Jeweler::RubyforgeTasks.new do |rubyforge|
@@ -59,3 +61,4 @@ Rake::RDocTask.new do |rdoc|
   rdoc.rdoc_files.include('README*')
   rdoc.rdoc_files.include('lib/**/*.rb')
 end
+

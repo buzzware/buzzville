@@ -1,7 +1,7 @@
 require 'net/ftp'
 
-this_path = File.dirname(__FILE__)
-require this_path+'/misc_utils'
+#this_path = File.dirname(__FILE__)
+#require this_path+'/misc_utils'
 
 String.class_eval do    
   def bite!(aValue=$/,aString=self)

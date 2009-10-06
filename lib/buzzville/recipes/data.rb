@@ -1,5 +1,7 @@
 require 'yore/yore_core'
 
+require 'ruby-debug'; debugger
+
 @@cap_config.load do
 	# cap stage -Dapp=spree yore:pull:p_to_d
 	# cap stage -Dapp=spree yore:push:d_to_p

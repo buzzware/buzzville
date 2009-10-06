@@ -259,10 +259,22 @@ module CapUtils
 		cmd.join(' && ')
 	end
 	
+	def ensure_folder(aPath,aOwner=nil,aGroup=nil,aMode=nil,aSudo=nil)
+		aSudo ||= ''
+		cmd = []
+		cmd << "#{aSudo} mkdir -p #{aPath}"
+		if aOwner || aGroup
+			cmd << "#{aSudo} chown #{aOwner} #{aPath}" if !aGroup
+			cmd << "#{aSudo} chgrp #{aGroup} #{aPath}" if !aOwner
+			cmd << "#{aSudo} chown #{aOwner}:#{aGroup} #{aPath}" if aOwner && aGroup
+		end
+		cmd << "chmod #{aMode} #{aPath}" if aMode
+		cmd.join(' && ')
+	end
+	
 	# This means :
-	# * designers can ftp in to the server and upload/edit templates
+	# * designers can ftp in to the server and upload/edit templates and partials
 	# * templates are Rails-style eg. erb but can be whatever you have Rails handlers for
-	# * templates created in the database or deployed in the app/views/layouts/templates are read only to designers, and will be replaced on restart
 	# * designers can upload assets into a design folder that will be available publicly under /design
 	# * designers templates and assets are not affected by redeploys
 
@@ -270,25 +282,21 @@ module CapUtils
 		
 		cmd = []
 		
-		cmd << "mkdir -p #{aSharedDesignPath}"
-		cmd << "chown #{aUser}:#{aApacheUser} #{aSharedDesignPath}"
-		cmd << "chmod 750 #{aSharedDesignPath}"
-		cmd << "mkdir -p #{aSharedDesignPath}/design"
-		cmd << "mkdir -p #{aSharedDesignPath}/templates"
+		cmd << ensure_folder(aSharedDesignPath,aUser,aApacheUser,750)
+		cmd << ensure_folder(aSharedDesignPath+'/design',aUser,aApacheUser,750)
+		design_views = "#{aSharedDesignPath}/views"
+
+		cmd << ensure_folder(design_views,aUser,aApacheUser,750)
+		# copy files from database to shared/design
+		cmd << "cp -rf #{aBrowserCmsRoot}/tmp/views/* #{design_views}/"
+		cmd << ensure_folder(design_views+'/layouts/templates',aUser,aApacheUser,750)
+		cmd << ensure_folder(design_views+'/partials',aUser,aApacheUser,750)
 	
-		# copy files from database to shared/design and make readonly
-		cmd << "cp #{aBrowserCmsRoot}/tmp/views/layouts/templates/* #{aSharedDesignPath}/templates/"
-		#Dir[aBrowserCmsRoot+'/tmp/views/layouts/templates/*'].each do |from|
-		#	cmd << force_copy_mode_cmd(from,aSharedDesignPath+'/templates/'+File.basename(from),640)
-		#end
-		#convert tmp templates folder into a link to shared/design
-		cmd << ensure_link_cmd(aSharedDesignPath+'/templates','templates',aBrowserCmsRoot+'/tmp/views/layouts',"#{aUser}:#{aApacheUser}")
+		#convert tmp views folder into a link to shared/design
+		cmd << ensure_link_cmd(design_views,'views',aBrowserCmsRoot+'/tmp',"#{aUser}:#{aApacheUser}")
 	
 		# copy files from aBrowserCmsRoot to shared/design and make readonly
-		cmd << "cp #{aBrowserCmsRoot}/app/views/layouts/templates/* #{aSharedDesignPath}/templates/"
-		#Dir[aBrowserCmsRoot+'/app/views/layouts/templates/*'].each do |from|
-		#	cmd << force_copy_mode_cmd(from,aSharedDesignPath+'/templates/'+File.basename(from),440)
-		#end
+		cmd << "cp -rf #{aBrowserCmsRoot}/app/views/* #{design_views}/"
 	
 		# link design/public into public folder
 		cmd << ensure_link_cmd(aSharedDesignPath+'/design','design',aBrowserCmsRoot+'/public',"#{aUser}:#{aApacheUser}")
@@ -296,7 +304,7 @@ module CapUtils
 		## link shared/design/design into ftp folder
 		cmd << ensure_link_cmd(aSharedDesignPath+'/design','design',aFtpPath,"#{aUser}:#{aApacheUser}")
 		## link templates into ftp folder
-		cmd << ensure_link_cmd(aSharedDesignPath+'/design','templates',aFtpPath,"#{aUser}:#{aApacheUser}")
+		cmd << ensure_link_cmd(design_views,'views',aFtpPath,"#{aUser}:#{aApacheUser}")
 		#run "#{sudo} chgrp -h www-data #{deploy_to}/current"  # this is to change owner of link, not target
 		cmd_s = cmd.join(" && ")
 	end
