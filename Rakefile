@@ -4,15 +4,15 @@ require 'rake'
 begin
   require 'jeweler'
   Jeweler::Tasks.new do |gem|
-    gem.name = "buzzware-buzzville"
+    gem.name = "buzzville"
     gem.summary = %Q{Capistrano recipes and ruby code relating to deployment}
     gem.description = %Q{Capistrano recipes and ruby code relating to deployment}
     gem.email = "contact@buzzware.com.au"
     gem.homepage = "http://github.com/buzzware/buzzville"
     gem.authors = ["buzzware"]
     gem.rubyforge_project = "buzzware"
-    gem.add_dependency('buzzware-buzzcore', '>= 0.2.4')
-    gem.add_dependency('buzzware-yore', '>= 0.0.5')
+    gem.add_dependency('buzzcore', '>= 0.2.5')
+    gem.add_dependency('yore', '>= 0.0.5')
     gem.add_dependency('cmdparse', '>= 2.0.2')
     gem.add_development_dependency "thoughtbot-shoulda"
     # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20 for additional settings
