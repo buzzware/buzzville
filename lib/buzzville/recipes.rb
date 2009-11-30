@@ -2,8 +2,6 @@
 # require 'buzzville/recipes' or 
 # require 'buzzville/recipes/data'
 
-require 'ruby-debug'; debugger
-
 require 'capistrano'
 require 'capistrano/cli'
 

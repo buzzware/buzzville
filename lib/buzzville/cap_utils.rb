@@ -147,7 +147,7 @@ module CapUtils
 		#sudo find . -type f -exec echo {} \;
 		cmd = []
 		cmd << "sudo" if aSudo
-		cmd << "find #{aPath}"
+		cmd << "find #{MiscUtils.append_slash(aPath)}"
 		cmd << "-wholename '#{aPattern}'" if aPattern
 		cmd << "-prune -o" if aInvertPattern
 		cmd << case aFilesOrDirs.to_s[0,1]
@@ -157,13 +157,42 @@ module CapUtils
 		end
 		cmd << "-exec"		
 		cmd << aCommand
-		cmd << '{} \;'		
+		cmd << "'{}' \\;"		
 		cmd = cmd.join(' ')
 		run cmd
 	end
 	
-	#run_for_all("chmod g+s #{File.expand_path(dir,public_dir)}",public_dir,:dirs)
+	# just quickly ensures user can deploy. Only for use before deploying, and should be followed by
+	# more secure settings
+	def permissions_for_deploy(aUser=nil,aGroup=nil,aPath=nil)
+		aUser ||= user
+		aGroup ||= apache_user
+		aPath ||= deploy_to
+		run "#{sudo} chown -R #{aUser}:#{aGroup} #{MiscUtils.append_slash(aPath)}"
+		run "#{sudo} chmod u+rw #{MiscUtils.append_slash(aPath)}"
+		run_for_all("chmod u+x",aPath,:dirs)		
+	end
 	
+	# set standard permissions for web sites - readonly for apache user
+	def permissions_for_web(aPath=nil,aUser=nil,aApacheUser=nil,aHideScm=nil)
+		aPath ||= deploy_to
+		aUser ||= user
+		aApacheUser ||= apache_user
+	
+		run "#{sudo} chown -R #{aUser}:#{aApacheUser} #{MiscUtils.append_slash(aPath)}"
+		run "#{sudo} chmod -R 644 #{MiscUtils.append_slash(aPath)}"
+		run_for_all("chmod +x",aPath,:dirs)
+		run_for_all("chmod g+s",aPath,:dirs)
+		case aHideScm
+			when :svn then run_for_all("chown -R #{aUser}:#{aUser}",aPath,:dirs,"*/.svn")
+		end
+	end
+	
+	# run this after permissions_for_web() on dirs that need to be writable by group (apache)
+	def permissions_for_web_writable(aPath)
+		run "#{sudo} chmod -R g+w #{MiscUtils.append_slash(aPath)}"
+	end
+
 	def set_dir_permissions_r(aStartPath,aUser=nil,aGroup=nil,aMode=nil,aSetGroupId=false)
 		cmd = []
 		if aGroup
@@ -288,7 +317,8 @@ module CapUtils
 
 		cmd << ensure_folder(design_views,aUser,aApacheUser,750)
 		# copy files from database to shared/design
-		cmd << "cp -rf #{aBrowserCmsRoot}/tmp/views/* #{design_views}/"
+		# if [[ ! -L libtool ]]; then echo 'true'; fi !!! need NOT
+		cmd << "if [ ! -L #{aBrowserCmsRoot}/tmp/views ]; then cp -rf #{aBrowserCmsRoot}/tmp/views/* #{design_views}/ ; fi"
 		cmd << ensure_folder(design_views+'/layouts/templates',aUser,aApacheUser,750)
 		cmd << ensure_folder(design_views+'/partials',aUser,aApacheUser,750)
 	
@@ -306,7 +336,7 @@ module CapUtils
 		## link templates into ftp folder
 		cmd << ensure_link_cmd(design_views,'views',aFtpPath,"#{aUser}:#{aApacheUser}")
 		#run "#{sudo} chgrp -h www-data #{deploy_to}/current"  # this is to change owner of link, not target
-		cmd_s = cmd.join(" && ")
+		cmd_s = cmd.join("\n")
 	end
 
 	def install_script_from_string(aScriptString,aFilepath)
@@ -316,6 +346,10 @@ module CapUtils
 		set_permissions(aFilepath,'root',user,750,false,true)
 	end
 
+	def svn_command(aCommand)
+		run "#{sudo} svn --trust-server-cert --non-interactive --username #{svn_user} --password #{svn_password} #{aCommand}"
+	end
+	
 end
 
 class CapUtilsClass

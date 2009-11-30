@@ -1,6 +1,5 @@
+require_paths_first File.join(File.dirname(__FILE__),'../../../../yore/lib');
 require 'yore/yore_core'
-
-require 'ruby-debug'; debugger
 
 @@cap_config.load do
 	# cap stage -Dapp=spree yore:pull:p_to_d
@@ -29,12 +28,12 @@ require 'ruby-debug'; debugger
 				cmd += " --RAILS_ENV=#{aRemoteEnv} #{remote_file}"
 				run cmd
 				download(remote_file,local_file,:via => :scp)			
-				local_yore = YoreCore::Yore.launch(nil,{:kind => kind,:RAILS_ENV => aLocalEnv,:basepath=>ENV['PWD']})
+				local_yore = YoreCore::Yore.launch(nil,{:kind => kind,:RAILS_ENV => aLocalEnv},{:basepath=>ENV['PWD']})
 				local_yore.load(local_file)
 			end
 			
 			def push_internal(aLocalEnv,aRemoteEnv)
-				local_yore = YoreCore::Yore.launch(nil,{:kind => kind,:RAILS_ENV => aLocalEnv,:basepath=>ENV['PWD']})
+				local_yore = YoreCore::Yore.launch(nil,{:kind => kind,:RAILS_ENV => aLocalEnv},{:basepath=>ENV['PWD']})
 				remote_app_path = File.join(cap.deploy_to,'current')
 				local_app_path = local_yore.config[:basepath]
 				filename = cap.unique_app_name+"-"+Time.now.strftime('%Y%m%d-%H%M%S')
@@ -42,7 +41,6 @@ require 'ruby-debug'; debugger
 				local_file = File.join("/tmp",filename) 
 				local_yore.save(local_file)
 				upload(local_file,remote_file,:via => :scp)
-	
 				run "echo $PATH"
 				# assume yore installed remotely
 				cmd = "cd #{remote_app_path}; yore load"
@@ -60,6 +58,8 @@ require 'ruby-debug'; debugger
 			end
 			namespace :push do
 				task :d2p  do
+					extend CapUtils
+					files.apply_deploy_permissions
 					push_internal('development','production')
 					files.apply_permissions
 					deploy.restart
