@@ -11,10 +11,10 @@ begin
     gem.homepage = "http://github.com/buzzware/buzzville"
     gem.authors = ["buzzware"]
     gem.rubyforge_project = "buzzware"
-    gem.add_dependency('buzzcore', '>= 0.2.5')
-    gem.add_dependency('yore', '>= 0.0.5')
+    gem.add_dependency('buzzcore', '>= 0.3.3')
+    gem.add_dependency('yore', '>= 0.2.1')
     gem.add_dependency('cmdparse', '>= 2.0.2')
-    gem.add_development_dependency "thoughtbot-shoulda"
+    gem.add_development_dependency "shoulda"
     # gem is a Gem::Specification... see http://www.rubygems.org/read/chapter/20 for additional settings
   end
   Jeweler::RubyforgeTasks.new do |rubyforge|
