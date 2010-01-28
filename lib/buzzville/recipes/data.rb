@@ -18,17 +18,19 @@ require 'yore/yore_core'
 			end
 	
 			def pull_internal(aRemoteEnv,aLocalEnv)
-				remote_app_path = ''
-				local_app_path = ''
-				remote_file = 'blah'
-				local_file = 'something'
+				local_yore = YoreCore::Yore.launch(nil,{:kind => kind,:RAILS_ENV => aLocalEnv},{:basepath=>ENV['PWD']})
+				remote_app_path = File.join(cap.deploy_to,'current')
+				local_app_path = local_yore.config[:basepath]
+				filename = cap.unique_app_name+"-"+Time.now.strftime('%Y%m%d-%H%M%S')
+				remote_file = File.join("/tmp",filename)
+				local_file = File.join("/tmp",filename) 
+
 				# assume yore installed remotely
 				cmd = "cd #{remote_app_path}; yore save"
 				cmd += " --kind=#{kind}" if kind
 				cmd += " --RAILS_ENV=#{aRemoteEnv} #{remote_file}"
 				run cmd
 				download(remote_file,local_file,:via => :scp)			
-				local_yore = YoreCore::Yore.launch(nil,{:kind => kind,:RAILS_ENV => aLocalEnv},{:basepath=>ENV['PWD']})
 				local_yore.load(local_file)
 			end
 			

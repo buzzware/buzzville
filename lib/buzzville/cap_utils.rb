@@ -8,6 +8,18 @@ require 'net/sftp'
 
 module CapUtils
 
+	# for debugging deploy :
+	#
+	# same as original, but without file removal on rollback
+	#task :update_code, :except => { :no_release => true } do
+	#	on_rollback do
+	#		require 'ruby-debug'; debugger
+	#	end
+	#	strategy.deploy!
+	#	finalize_update
+	#end
+
+
 	# upload the given local file to the remote server and set the given mode.
 	# 0644 is the default mode
 	#
@@ -101,7 +113,7 @@ module CapUtils
 	def file_exists?(path)
 		result = nil
 		run "if [[ -e #{path} ]]; then echo 'true'; else echo 'false'; fi", :shell => false do |ch,stream,text|
-			result = (text.strip! == 'true')
+			result = (text.strip == 'true')
 		end
 		result
 	end
@@ -124,9 +136,9 @@ module CapUtils
 		ensure_link("#{aSharedFolder}","#{aReleaseFolder}",nil,"#{user}:#{apache_user}")
 	end
 
-	def select_target_file(aFile)
-		ext = MiscUtils.file_extension(aFile,false)
-		no_ext = MiscUtils.file_no_extension(aFile,false)
+	def select_target_file(aFile,aExtendedExtension=false)
+		ext = MiscUtils.file_extension(aFile,aExtendedExtension)
+		no_ext = MiscUtils.file_no_extension(aFile,aExtendedExtension)
 		dir = File.dirname(aFile)
 		run "#{sudo} mv -f #{no_ext}.#{target}.#{ext} #{aFile}"
 		run "#{sudo} rm -f #{no_ext}.*.#{ext}"
@@ -227,6 +239,12 @@ module CapUtils
 	def mkdir_permissions(aStartPath,aUser=nil,aGroup=nil,aMode=nil,aSetGroupId=false,aSudo=true)
 		run "#{sudo} mkdir -p #{aStartPath}"
 		set_permissions(aStartPath,aUser,aGroup,aMode,aSetGroupId,aSudo)
+	end
+
+	def make_public_cache_dir(aStartPath)
+		run "#{sudo} mkdir -p #{aStartPath}"
+		permissions_for_web(aStartPath)
+		permissions_for_web_writable(aStartPath)
 	end
 
 	# if aGroup is given, that will be the users only group

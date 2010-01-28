@@ -8,12 +8,16 @@
 				@@cap_config
 			end
 	
+			#task :check_key do
+			#	#sudo openssl rsa -check -noout -in ~/.ssh/iarts.ppk
+			#end	
+	
 			# should set key_dir
 			task :new_key do	
 				set :local_key_dir,File.expand_path('~/.ssh') unless (local_key_dir rescue false)
 				if !(key_name rescue false)				
 					default_key_name = (new_user rescue nil) || 'new_key'
-					key_name_response = Capistrano::CLI.ui.ask("Enter a name for the key without extension (default: #{default_key_name}):").strip!
+					key_name_response = Capistrano::CLI.ui.ask("Enter a name for the key without extension (default: #{default_key_name}):").strip
 					set :key_name, (key_name_response.nil? || key_name_response.empty?) ? default_key_name : key_name_response
 				end
 				pub = File.join(local_key_dir,key_name+'.pub')
@@ -21,14 +25,14 @@
 				raise StandardError.new("#{pub} or #{ppk} already exists") if File.exists?(pub) || File.exists?(ppk)
 				passphrase = Capistrano::CLI.password_prompt("Enter a passphrase (>= 5 characters):")
 				# create key - asks for name & passphrase and stores in ~/.ssh
-				shell "ssh-keygen -N #{passphrase} -f #{File.join(local_key_dir,key_name)}"
+				shell "ssh-keygen #{passphrase.to_s.empty? ? '' : '-N '+passphrase} -f #{File.join(local_key_dir,key_name)}"
 				shell "#{sudo} mv #{File.join(local_key_dir,key_name)} #{ppk}"
 				shell "#{sudo} sed -i -e 's/== .*$/== #{key_name}.pub/' #{pub}"
 				shell "#{sudo} chown $USER #{pub}"
 				shell "#{sudo} chown $USER #{ppk}"
 				Capistrano::CLI.ui.say "created #{pub}"
 				Capistrano::CLI.ui.say "created #{ppk}"
-				Capistrano::CLI.ui.say "Recommended: ssh-add #{ppk}"
+				Capistrano::CLI.ui.say "Recommended: ssh-add -k #{ppk}"
 			end	
 			
 			task :install_key do
@@ -57,7 +61,7 @@
 					run "#{sudo} echo '' | #{sudo} tee -a #{auth_keys}"				# new line 
 					run "#{sudo} cat #{File.join(admin_dir,key_name+'.pub')} | #{sudo} tee -a #{auth_keys}"
 					run "#{sudo} rm #{File.join(admin_dir,key_name+'.pub')}"
-					run "#{sudo} sudo /etc/init.d/ssh restart"
+					run "#{sudo} /etc/init.d/ssh restart"
 				end
 				
 				# add to sshd_config AllowUsers if not already
@@ -75,11 +79,15 @@
 
 You probably need to append :
 
-Host #{host}
+Host #{new_user}
         IdentityFile #{File.join(local_key_dir,key_name+'.ppk')}
         User #{new_user}
+        Hostname #{host}
         Port #{sessions.values.first.transport.peer[:port]}				
-				
+        TCPKeepAlive yes
+        IdentitiesOnly yes
+        PreferredAuthentications publickey				
+
 to your ~/.ssh/config file
 
 and run locally :
@@ -88,7 +96,7 @@ and run locally :
 
 and then you should be able to  :
 
-        ssh #{new_user}@#{host}
+        ssh #{new_user}
 				
 without entering a password and the passphrase will be in your keychain.
 
